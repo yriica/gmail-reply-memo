@@ -1,0 +1,74 @@
+{
+  "extensionName": {
+    "message": "Gmail Reply Memo",
+    "description": "拡張機能の名前"
+  },
+  "extensionDescription": {
+    "message": "Gmailのスレッドに返信メモを追加できる拡張機能",
+    "description": "拡張機能の説明"
+  },
+  "memoTitle": {
+    "message": "返信メモ",
+    "description": "メモパネルのタイトル"
+  },
+  "memoPlaceholder": {
+    "message": "ここに返信メモを入力...",
+    "description": "メモ入力欄のプレースホルダー"
+  },
+  "addTask": {
+    "message": "タスク追加",
+    "description": "タスク追加ボタン"
+  },
+  "addTag": {
+    "message": "タグを追加...",
+    "description": "タグ入力のプレースホルダー"
+  },
+  "important": {
+    "message": "重要",
+    "description": "重要フラグのツールチップ"
+  },
+  "export": {
+    "message": "エクスポート",
+    "description": "エクスポートボタン"
+  },
+  "delete": {
+    "message": "削除",
+    "description": "削除ボタン"
+  },
+  "close": {
+    "message": "閉じる",
+    "description": "閉じるボタン"
+  },
+  "search": {
+    "message": "メモを検索...",
+    "description": "検索ボックスのプレースホルダー"
+  },
+  "filterImportant": {
+    "message": "重要",
+    "description": "重要フィルタボタン"
+  },
+  "filterTasks": {
+    "message": "未完タスク",
+    "description": "未完タスクフィルタボタン"
+  },
+  "filterAll": {
+    "message": "すべて",
+    "description": "すべて表示フィルタボタン"
+  },
+  "settings": {
+    "message": "設定",
+    "description": "設定ボタン"
+  },
+  "exportAll": {
+    "message": "エクスポート",
+    "description": "すべてエクスポートボタン"
+  },
+  "noMemos": {
+    "message": "メモがありません",
+    "description": "メモがない時のメッセージ"
+  },
+  "noResults": {
+    "message": "メモが見つかりませんでした",
+    "description": "検索結果がない時のメッセージ"
+  }
+}

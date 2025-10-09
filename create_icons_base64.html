@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Gmail Reply Memo - Icon Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 { color: #1a73e8; }
+    .icon-container {
+      display: flex;
+      gap: 20px;
+      margin: 20px 0;
+      align-items: center;
+    }
+    canvas {
+      border: 1px solid #ccc;
+    }
+    button {
+      padding: 10px 20px;
+      background: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #1557b0;
+    }
+    .instructions {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .success {
+      background: #e6f4ea;
+      color: #137333;
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>📝 Gmail Reply Memo - Icon Generator</h1>
+
+  <div class="instructions">
+    <h3>使い方:</h3>
+    <ol>
+      <li>下の「Generate Icons」ボタンをクリック</li>
+      <li>各アイコンを右クリック → 「名前を付けて画像を保存」</li>
+      <li>ファイル名を以下のように保存:
+        <ul>
+          <li>128x128 → <code>icon128.png</code></li>
+          <li>48x48 → <code>icon48.png</code></li>
+          <li>16x16 → <code>icon16.png</code></li>
+        </ul>
+      </li>
+      <li>保存した3つのファイルを <code>icons/</code> ディレクトリに配置</li>
+    </ol>
+  </div>
+
+  <button onclick="generateIcons()">Generate Icons</button>
+  <div class="success" id="success">✓ アイコンが生成されました！右クリックして保存してください。</div>
+
+  <div class="icon-container">
+    <div>
+      <h3>128x128</h3>
+      <canvas id="icon128" width="128" height="128"></canvas>
+    </div>
+    <div>
+      <h3>48x48</h3>
+      <canvas id="icon48" width="48" height="48"></canvas>
+    </div>
+    <div>
+      <h3>16x16</h3>
+      <canvas id="icon16" width="16" height="16"></canvas>
+    </div>
+  </div>
+
+  <script>
+    function drawIcon(canvas) {
+      const ctx = canvas.getContext('2d');
+      const size = canvas.width;
+
+      // 背景色（Gmail Reply Memoのブルー）
+      ctx.fillStyle = '#1a73e8';
+      ctx.fillRect(0, 0, size, size);
+
+      // 白い円を中央に
+      ctx.fillStyle = 'white';
+      const centerX = size / 2;
+      const centerY = size / 2;
+      const radius = size / 4;
+
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // メモ風の線を描画（大きいサイズのみ）
+      if (size >= 48) {
+        ctx.strokeStyle = '#1a73e8';
+        ctx.lineWidth = Math.max(2, size / 32);
+        const margin = size / 3;
+        const lineSpacing = size / 8;
+
+        for (let i = 0; i < 3; i++) {
+          const y = margin + lineSpacing / 2 + i * lineSpacing;
+          ctx.beginPath();
+          ctx.moveTo(margin, y);
+          ctx.lineTo(size - margin, y);
+          ctx.stroke();
+        }
+      }
+
+      // 16x16の場合はシンプルな白い点のみ
+      if (size === 16) {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(centerX - 3, centerY - 3, 6, 6);
+      }
+    }
+
+    function generateIcons() {
+      // 各サイズのアイコンを生成
+      drawIcon(document.getElementById('icon128'));
+      drawIcon(document.getElementById('icon48'));
+      drawIcon(document.getElementById('icon16'));
+
+      // 成功メッセージを表示
+      document.getElementById('success').style.display = 'block';
+    }
+
+    // ページ読み込み時に自動生成
+    window.addEventListener('load', generateIcons);
+  </script>
+</body>
+</html>
