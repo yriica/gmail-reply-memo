@@ -82,6 +82,10 @@
 
   // フィルタと検索を適用
   function applyFilters() {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekLater = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+
     filteredMemos = allMemos.filter(memo => {
       // フィルタチェック
       if (currentFilter === 'important' && !memo.important) {
@@ -93,10 +97,31 @@
         if (!hasIncompleteTasks) return false;
       }
 
+      // 期限フィルタ
+      if (currentFilter === 'overdue' || currentFilter === 'today' || currentFilter === 'upcoming') {
+        if (!memo.dueDate) return false;
+
+        const dueDate = new Date(memo.dueDate);
+        const dueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+        const diffDays = Math.floor((dueDay - today) / (1000 * 60 * 60 * 24));
+
+        if (currentFilter === 'overdue' && diffDays >= 0) return false;
+        if (currentFilter === 'today' && diffDays !== 0) return false;
+        if (currentFilter === 'upcoming' && (diffDays < 1 || diffDays > 7)) return false;
+      }
+
+      // カラーフィルタ
+      if (currentFilter.startsWith('color-')) {
+        const color = currentFilter.replace('color-', '');
+        if (memo.color !== color) return false;
+      }
+
       // 検索クエリチェック
       if (searchQuery) {
         const searchableText = [
           memo.content || '',
+          memo.threadSubject || '',
+          memo.threadSender || '',
           (memo.tags || []).join(' '),
           (memo.tasks || []).map(t => t.text).join(' ')
         ].join(' ').toLowerCase();
@@ -141,8 +166,46 @@
     const item = document.createElement('div');
     item.className = 'memo-item';
 
+    // カラーバッジ
+    const colorBadge = memo.color ? `<span class="memo-item-color-badge ${memo.color}"></span>` : '';
+
     // 重要マーク
     const importantIcon = memo.important ? '<span class="memo-item-important">⭐</span>' : '';
+
+    // スレッド件名と送信者
+    const subject = memo.threadSubject || `スレッドID: ${memo.threadId.substring(0, 12)}...`;
+    const sender = memo.threadSender ? `<div class="memo-item-sender">${memo.threadSender}</div>` : '';
+
+    // 期限表示
+    let dueHtml = '';
+    if (memo.dueDate) {
+      const now = new Date();
+      const dueDate = new Date(memo.dueDate);
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const dueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+      const diffDays = Math.floor((dueDay - today) / (1000 * 60 * 60 * 24));
+
+      let dueClass = 'upcoming';
+      let dueText = '';
+
+      if (diffDays < 0) {
+        dueClass = 'overdue';
+        dueText = `⚠️ ${Math.abs(diffDays)}日過ぎています`;
+      } else if (diffDays === 0) {
+        dueClass = 'today';
+        dueText = '⏰ 今日が期限';
+      } else if (diffDays === 1) {
+        dueClass = 'upcoming';
+        dueText = '📅 明日が期限';
+      } else if (diffDays <= 7) {
+        dueClass = 'upcoming';
+        dueText = `📅 あと${diffDays}日`;
+      } else {
+        dueText = `📅 ${dueDate.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}`;
+      }
+
+      dueHtml = `<div class="memo-item-due ${dueClass}">${dueText}</div>`;
+    }
 
     // タグ
     const tagsHtml = (memo.tags || []).map(tag =>
@@ -170,9 +233,12 @@
 
     item.innerHTML = `
       <div class="memo-item-header">
+        ${colorBadge}
         ${importantIcon}
-        <span class="memo-item-id">${memo.threadId.substring(0, 12)}...</span>
+        <span class="memo-item-subject">${subject}</span>
       </div>
+      ${sender}
+      ${dueHtml}
       ${tagsHtml ? `<div class="memo-item-tags">${tagsHtml}</div>` : ''}
       ${contentPreview ? `<div class="memo-item-content">${contentPreview}</div>` : ''}
       ${tasksHtml}

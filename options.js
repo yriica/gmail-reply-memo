@@ -7,7 +7,6 @@
     storageType: 'local',
     autoSaveInterval: 2000,
     panelPosition: 'right',
-    darkMode: true,
     showBadge: false
   };
 
@@ -59,13 +58,6 @@
     document.getElementById('autoSaveInterval').value = currentSettings.autoSaveInterval;
     document.getElementById('panelPosition').value = currentSettings.panelPosition;
 
-    const darkModeToggle = document.getElementById('darkModeToggle');
-    if (currentSettings.darkMode) {
-      darkModeToggle.classList.add('active');
-    } else {
-      darkModeToggle.classList.remove('active');
-    }
-
     const badgeToggle = document.getElementById('badgeToggle');
     if (currentSettings.showBadge) {
       badgeToggle.classList.add('active');
@@ -77,10 +69,6 @@
   // イベントリスナーを設定
   function setupEventListeners() {
     // トグルスイッチ
-    document.getElementById('darkModeToggle').addEventListener('click', (e) => {
-      e.target.classList.toggle('active');
-    });
-
     document.getElementById('badgeToggle').addEventListener('click', (e) => {
       e.target.classList.toggle('active');
     });
@@ -107,7 +95,6 @@
       storageType: document.getElementById('storageType').value,
       autoSaveInterval: parseInt(document.getElementById('autoSaveInterval').value),
       panelPosition: document.getElementById('panelPosition').value,
-      darkMode: document.getElementById('darkModeToggle').classList.contains('active'),
       showBadge: document.getElementById('badgeToggle').classList.contains('active')
     };
 

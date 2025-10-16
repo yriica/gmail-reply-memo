@@ -48,30 +48,127 @@
     return match ? match[1] : '0';
   }
 
+  // スレッド件名を取得
+  function getThreadSubject() {
+    const subjectElement = document.querySelector('h2[data-legacy-thread-id]');
+    if (subjectElement) {
+      return subjectElement.textContent.trim();
+    }
+    return '';
+  }
+
+  // 送信者情報を取得
+  function getThreadSender() {
+    // メールの送信者を取得（最初のメールの送信者）
+    const senderElement = document.querySelector('[email]');
+    if (senderElement) {
+      const email = senderElement.getAttribute('email');
+      const name = senderElement.getAttribute('name') || senderElement.textContent.trim();
+      return name || email;
+    }
+    return '';
+  }
+
   // ストレージキーを生成
   function getStorageKey(threadId) {
     return `${getUserId()}#${threadId}`;
   }
 
+  // 拡張機能のコンテキストが有効かチェック
+  function isExtensionContextValid() {
+    try {
+      return chrome.runtime && chrome.runtime.id;
+    } catch (error) {
+      return false;
+    }
+  }
+
   // メモデータをロード
   async function loadMemo(threadId) {
+    if (!isExtensionContextValid()) {
+      console.warn('Extension context invalidated, cannot load memo');
+      return {
+        content: '',
+        important: false,
+        tags: [],
+        tasks: [],
+        updatedAt: Date.now(),
+        dueDate: null,
+        reminderEnabled: false,
+        color: null,
+        archived: false,
+        threadSubject: '',
+        threadSender: ''
+      };
+    }
+
     const key = getStorageKey(threadId);
-    const result = await chrome.storage.local.get(key);
-    return result[key] || {
-      content: '',
-      important: false,
-      tags: [],
-      tasks: [],
-      updatedAt: Date.now()
-    };
+    console.log('Loading memo with key:', key);
+    try {
+      const result = await chrome.storage.local.get(key);
+      console.log('Loaded data:', result[key] ? 'Found' : 'Not found', result[key]);
+      return result[key] || {
+        content: '',
+        important: false,
+        tags: [],
+        tasks: [],
+        updatedAt: Date.now(),
+        dueDate: null,
+        reminderEnabled: false,
+        color: null,
+        archived: false,
+        threadSubject: '',
+        threadSender: ''
+      };
+    } catch (error) {
+      console.error('Failed to load memo:', error);
+      return {
+        content: '',
+        important: false,
+        tags: [],
+        tasks: [],
+        updatedAt: Date.now(),
+        dueDate: null,
+        reminderEnabled: false,
+        color: null,
+        archived: false,
+        threadSubject: '',
+        threadSender: ''
+      };
+    }
   }
 
   // メモデータを保存
   async function saveMemo(threadId, data) {
+    if (!isExtensionContextValid()) {
+      console.warn('Extension context invalidated, cannot save memo');
+      return false;
+    }
+
     const key = getStorageKey(threadId);
     data.updatedAt = Date.now();
-    await chrome.storage.local.set({ [key]: data });
-    console.log('Memo saved:', key);
+
+    // スレッド情報を自動取得して保存（初回または未設定の場合）
+    if (!data.threadSubject) {
+      data.threadSubject = getThreadSubject();
+    }
+    if (!data.threadSender) {
+      data.threadSender = getThreadSender();
+    }
+
+    console.log('Saving memo with key:', key, 'data:', data);
+    try {
+      await chrome.storage.local.set({ [key]: data });
+      console.log('Memo saved successfully:', key);
+
+      // 保存確認
+      const verify = await chrome.storage.local.get(key);
+      console.log('Verification:', verify[key] ? 'OK' : 'FAILED');
+      return true;
+    } catch (error) {
+      console.error('Failed to save memo:', error);
+      return false;
+    }
   }
 
   // デバウンス付き自動保存
@@ -100,7 +197,8 @@
           border-radius: 16px;
           margin: 8px 0 12px 0;
           width: 100%;
-          max-width: 100%;
+          min-width: 600px;
+          max-width: 738px;
           display: flex;
           flex-direction: column;
           transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
@@ -108,11 +206,6 @@
 
         .memo-panel.collapsed {
           display: none;
-        }
-
-        .memo-panel.dark-mode {
-          background: #2d2e30;
-          color: #e8eaed;
         }
 
         .memo-header {
@@ -123,10 +216,6 @@
           justify-content: space-between;
           background: transparent;
           border-radius: 16px 16px 0 0;
-        }
-
-        .dark-mode .memo-header {
-          border-bottom-color: rgba(255,255,255,0.1);
         }
 
         .memo-title {
@@ -142,10 +231,6 @@
         .memo-title::before {
           content: '📝';
           font-size: 16px;
-        }
-
-        .dark-mode .memo-title {
-          color: #e8eaed;
         }
 
         .memo-actions {
@@ -172,14 +257,6 @@
           background: #f1f3f4;
         }
 
-        .dark-mode .icon-btn {
-          color: #9aa0a6;
-        }
-
-        .dark-mode .icon-btn:hover {
-          background: #3c4043;
-        }
-
         .icon-btn.active {
           color: #fbbc04;
         }
@@ -191,10 +268,6 @@
           display: flex;
           flex-direction: column;
           gap: 12px;
-          background: transparent;
-        }
-
-        .dark-mode .memo-body {
           background: transparent;
         }
 
@@ -216,18 +289,9 @@
           font-family: inherit !important;
         }
 
-        .dark-mode .memo-content {
-          background: rgba(255,255,255,0.1);
-          color: #e8eaed;
-        }
-
         .memo-content:focus {
           background: #ffffff;
           box-shadow: 0 1px 2px 0 rgba(60,64,67,0.1);
-        }
-
-        .dark-mode .memo-content:focus {
-          background: rgba(255,255,255,0.15);
         }
 
         .memo-content:empty:before {
@@ -247,10 +311,6 @@
           display: flex;
           align-items: center;
           justify-content: space-between;
-        }
-
-        .dark-mode .tasks-header {
-          color: #9aa0a6;
         }
 
         .add-task-btn {
@@ -276,10 +336,6 @@
 
         .task-item:hover {
           background: #f8f9fa;
-        }
-
-        .dark-mode .task-item:hover {
-          background: #353535;
         }
 
         .task-checkbox {
@@ -326,10 +382,6 @@
           background: transparent;
         }
 
-        .dark-mode .memo-footer {
-          border-top-color: rgba(255,255,255,0.1);
-        }
-
         .tags-input {
           display: flex;
           gap: 4px;
@@ -347,11 +399,6 @@
           align-items: center;
           gap: 4px;
           font-weight: 500;
-        }
-
-        .dark-mode .tag {
-          background: rgba(138, 180, 248, 0.2);
-          color: #8ab4f8;
         }
 
         .tag-remove {
@@ -384,10 +431,6 @@
           text-align: right;
         }
 
-        .dark-mode .memo-meta {
-          color: #9aa0a6;
-        }
-
         .toggle-btn {
           background: none;
           border: none;
@@ -413,18 +456,6 @@
           color: #1a73e8;
         }
 
-        .dark-mode .toggle-btn {
-          color: #9aa0a6;
-        }
-
-        .dark-mode .toggle-btn:hover {
-          background: rgba(255,255,255,0.08);
-        }
-
-        .dark-mode .toggle-btn.panel-visible {
-          color: #8ab4f8;
-        }
-
         .important-badge {
           font-size: 16px;
           margin-left: 4px;
@@ -433,6 +464,127 @@
 
         .important-badge.visible {
           display: inline;
+        }
+
+        .memo-reminder {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          background: rgba(26, 115, 232, 0.08);
+          border-radius: 8px;
+          font-size: 12px;
+          margin-bottom: 8px;
+        }
+
+        .memo-reminder input[type="date"] {
+          border: 1px solid #dadce0;
+          border-radius: 4px;
+          padding: 4px 8px;
+          font-size: 12px;
+          outline: none;
+          flex: 1;
+        }
+
+        .memo-reminder input[type="date"]:focus {
+          border-color: #1a73e8;
+        }
+
+        .reminder-clear-btn {
+          background: none;
+          border: none;
+          color: #5f6368;
+          cursor: pointer;
+          padding: 2px 6px;
+          font-size: 11px;
+        }
+
+        .reminder-clear-btn:hover {
+          color: #d93025;
+          text-decoration: underline;
+        }
+
+        .reminder-status {
+          font-size: 11px;
+          color: #5f6368;
+        }
+
+        .reminder-status.overdue {
+          color: #d93025;
+          font-weight: 500;
+        }
+
+        .reminder-status.today {
+          color: #fbbc04;
+          font-weight: 500;
+        }
+
+        .reminder-status.upcoming {
+          color: #1a73e8;
+        }
+
+        .color-picker {
+          display: flex;
+          gap: 6px;
+          align-items: center;
+          margin-bottom: 8px;
+          padding: 8px 12px;
+          background: #f8f9fa;
+          border-radius: 8px;
+        }
+
+        .color-picker-label {
+          font-size: 12px;
+          color: #5f6368;
+          margin-right: 4px;
+        }
+
+        .color-option {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          border: 2px solid transparent;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .color-option:hover {
+          transform: scale(1.15);
+        }
+
+        .color-option.active {
+          border-color: #3c4043;
+          box-shadow: 0 0 0 2px #fff, 0 0 0 4px #3c4043;
+        }
+
+        .color-option[data-color="red"] { background: #ea4335; }
+        .color-option[data-color="yellow"] { background: #fbbc04; }
+        .color-option[data-color="green"] { background: #34a853; }
+        .color-option[data-color="blue"] { background: #4285f4; }
+        .color-option[data-color="purple"] { background: #a142f4; }
+        .color-option[data-color="none"] {
+          background: #fff;
+          border: 2px solid #dadce0;
+        }
+
+        .memo-panel[data-color="red"] {
+          border-left: 4px solid #ea4335;
+        }
+
+        .memo-panel[data-color="yellow"] {
+          border-left: 4px solid #fbbc04;
+        }
+
+        .memo-panel[data-color="green"] {
+          border-left: 4px solid #34a853;
+        }
+
+        .memo-panel[data-color="blue"] {
+          border-left: 4px solid #4285f4;
+        }
+
+        .memo-panel[data-color="purple"] {
+          border-left: 4px solid #a142f4;
         }
       </style>
 
@@ -453,6 +605,23 @@
         </div>
 
         <div class="memo-body">
+          <div class="color-picker">
+            <span class="color-picker-label">🎨 カラー:</span>
+            <div class="color-option" data-color="none" title="色なし"></div>
+            <div class="color-option" data-color="red" title="赤（緊急）"></div>
+            <div class="color-option" data-color="yellow" title="黄（保留）"></div>
+            <div class="color-option" data-color="green" title="緑（対応済み）"></div>
+            <div class="color-option" data-color="blue" title="青（確認中）"></div>
+            <div class="color-option" data-color="purple" title="紫（重要）"></div>
+          </div>
+
+          <div class="memo-reminder">
+            <span>📅 返信期限:</span>
+            <input type="date" id="dueDateInput" />
+            <button class="reminder-clear-btn" id="clearDueDateBtn">クリア</button>
+            <span class="reminder-status" id="reminderStatus"></span>
+          </div>
+
           <div class="memo-content"
                contenteditable="true"
                data-placeholder="ここに返信メモを入力..."
@@ -541,27 +710,23 @@
     panelContainer = document.createElement('div');
     panelContainer.id = 'gmail-reply-memo-container';
 
-    // タイトルの左端位置を取得して揃える
+    // タイトルの左端位置を取得
     let leftPadding = '40px'; // デフォルト
-    let rightPadding = '40px'; // デフォルト
-
     if (insertionInfo.subjectElement) {
       const subjectRect = insertionInfo.subjectElement.getBoundingClientRect();
       const parentRect = insertionInfo.subjectElement.parentElement.getBoundingClientRect();
       leftPadding = `${subjectRect.left - parentRect.left}px`;
-      // 右側も同じだけ余白を取る
-      rightPadding = leftPadding;
-      console.log('Gmail Reply Memo: Calculated padding:', leftPadding);
+      console.log('Gmail Reply Memo: Calculated left padding:', leftPadding);
     }
 
+    // コンテナの左パディングをタイトルに合わせ、右パディングは固定
     panelContainer.style.cssText = `
-      width: auto;
+      width: 100%;
       max-width: 100%;
       box-sizing: border-box;
       padding-left: ${leftPadding};
-      padding-right: ${rightPadding};
+      padding-right: 40px;
       margin: 0;
-      min-width: 600px;
     `;
 
     // 位置に応じて挿入
@@ -629,17 +794,6 @@
     shadowRoot = panelContainer.attachShadow({ mode: 'open' });
     shadowRoot.innerHTML = createPanelHTML();
 
-    // ダークモード検出
-    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (isDark) {
-      const panel = shadowRoot.querySelector('.memo-panel');
-      const body = shadowRoot.querySelector('.memo-body');
-      const header = shadowRoot.querySelector('.memo-header');
-      if (panel) panel.classList.add('dark-mode');
-      if (body) body.classList.add('dark-mode');
-      if (header) header.classList.add('dark-mode');
-    }
-
     // イベントリスナーを設定
     setupEventListeners(threadId);
 
@@ -659,6 +813,7 @@
     const importantBtn = shadowRoot.getElementById('importantBtn');
     const importantBadge = shadowRoot.getElementById('importantBadge');
     const meta = shadowRoot.getElementById('memoMeta');
+    const panel = shadowRoot.getElementById('memoPanel');
 
     // コンテンツ
     content.innerHTML = data.content || '';
@@ -670,6 +825,36 @@
     } else {
       importantBtn.classList.remove('active');
       if (importantBadge) importantBadge.classList.remove('visible');
+    }
+
+    // カラーコーディング
+    const colorOptions = shadowRoot.querySelectorAll('.color-option');
+    colorOptions.forEach(option => {
+      const color = option.dataset.color;
+      if ((data.color && color === data.color) || (!data.color && color === 'none')) {
+        option.classList.add('active');
+      } else {
+        option.classList.remove('active');
+      }
+    });
+
+    // パネルにカラー属性を設定
+    if (data.color) {
+      panel.setAttribute('data-color', data.color);
+    } else {
+      panel.removeAttribute('data-color');
+    }
+
+    // リマインダー（期限）
+    const dueDateInput = shadowRoot.getElementById('dueDateInput');
+    const reminderStatus = shadowRoot.getElementById('reminderStatus');
+    if (data.dueDate) {
+      const date = new Date(data.dueDate);
+      dueDateInput.value = date.toISOString().split('T')[0];
+      updateReminderStatus(data.dueDate);
+    } else {
+      dueDateInput.value = '';
+      reminderStatus.textContent = '';
     }
 
     // タスク
@@ -692,6 +877,37 @@
     if (data.updatedAt) {
       const date = new Date(data.updatedAt);
       meta.textContent = `最終更新: ${date.toLocaleString('ja-JP')}`;
+    }
+  }
+
+  // リマインダーステータスを更新
+  function updateReminderStatus(dueDate) {
+    if (!shadowRoot) return;
+    const reminderStatus = shadowRoot.getElementById('reminderStatus');
+    if (!dueDate) {
+      reminderStatus.textContent = '';
+      reminderStatus.className = 'reminder-status';
+      return;
+    }
+
+    const now = new Date();
+    const due = new Date(dueDate);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+    const diffDays = Math.floor((dueDay - today) / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      reminderStatus.textContent = `⚠️ ${Math.abs(diffDays)}日過ぎています`;
+      reminderStatus.className = 'reminder-status overdue';
+    } else if (diffDays === 0) {
+      reminderStatus.textContent = '⏰ 今日が期限';
+      reminderStatus.className = 'reminder-status today';
+    } else if (diffDays === 1) {
+      reminderStatus.textContent = '明日が期限';
+      reminderStatus.className = 'reminder-status upcoming';
+    } else {
+      reminderStatus.textContent = `あと${diffDays}日`;
+      reminderStatus.className = 'reminder-status upcoming';
     }
   }
 
@@ -750,6 +966,7 @@
   function getCurrentMemoData() {
     const content = shadowRoot.getElementById('memoContent');
     const importantBtn = shadowRoot.getElementById('importantBtn');
+    const dueDateInput = shadowRoot.getElementById('dueDateInput');
     const tags = Array.from(shadowRoot.querySelectorAll('.tag')).map(tag => {
       return tag.textContent.trim().replace('×', '');
     });
@@ -762,11 +979,22 @@
       };
     });
 
+    // 選択されているカラーを取得
+    const activeColorOption = shadowRoot.querySelector('.color-option.active');
+    const color = activeColorOption ? activeColorOption.dataset.color : null;
+
+    // 期限を取得
+    const dueDateValue = dueDateInput.value;
+    const dueDate = dueDateValue ? new Date(dueDateValue).getTime() : null;
+
     return {
       content: content.innerHTML,
       important: importantBtn.classList.contains('active'),
       tags: tags,
       tasks: tasks,
+      color: color === 'none' ? null : color,
+      dueDate: dueDate,
+      reminderEnabled: !!dueDate,
       updatedAt: Date.now()
     };
   }
@@ -852,6 +1080,8 @@
     const content = shadowRoot.getElementById('memoContent');
     const addTaskBtn = shadowRoot.getElementById('addTaskBtn');
     const tagInput = shadowRoot.getElementById('tagInput');
+    const dueDateInput = shadowRoot.getElementById('dueDateInput');
+    const clearDueDateBtn = shadowRoot.getElementById('clearDueDateBtn');
 
     // パネルの表示/非表示
     toggleBtn.addEventListener('click', () => {
@@ -920,6 +1150,44 @@
       if (tagInput.value.trim()) {
         addTag(tagInput.value);
       }
+    });
+
+    // カラーピッカー
+    shadowRoot.querySelectorAll('.color-option').forEach(option => {
+      option.addEventListener('click', () => {
+        // すべての選択を解除
+        shadowRoot.querySelectorAll('.color-option').forEach(opt => {
+          opt.classList.remove('active');
+        });
+        // クリックされたカラーを選択
+        option.classList.add('active');
+
+        // パネルにカラー属性を設定
+        const color = option.dataset.color;
+        if (color === 'none') {
+          panel.removeAttribute('data-color');
+        } else {
+          panel.setAttribute('data-color', color);
+        }
+
+        saveCurrentMemo();
+      });
+    });
+
+    // 期限入力
+    dueDateInput.addEventListener('change', () => {
+      const data = getCurrentMemoData();
+      updateReminderStatus(data.dueDate);
+      saveCurrentMemo();
+    });
+
+    // 期限クリアボタン
+    clearDueDateBtn.addEventListener('click', () => {
+      dueDateInput.value = '';
+      const reminderStatus = shadowRoot.getElementById('reminderStatus');
+      reminderStatus.textContent = '';
+      reminderStatus.className = 'reminder-status';
+      saveCurrentMemo();
     });
   }
 

@@ -123,6 +123,55 @@
       font-family: monospace;
     }
 
+    .memo-item-subject {
+      font-size: 13px;
+      font-weight: 500;
+      color: #202124;
+      margin-bottom: 4px;
+    }
+
+    .memo-item-sender {
+      font-size: 11px;
+      color: #5f6368;
+    }
+
+    .memo-item-color-badge {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 4px;
+    }
+
+    .memo-item-color-badge.red { background: #ea4335; }
+    .memo-item-color-badge.yellow { background: #fbbc04; }
+    .memo-item-color-badge.green { background: #34a853; }
+    .memo-item-color-badge.blue { background: #4285f4; }
+    .memo-item-color-badge.purple { background: #a142f4; }
+
+    .memo-item-due {
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      display: inline-block;
+      margin-bottom: 8px;
+    }
+
+    .memo-item-due.overdue {
+      background: #fce8e6;
+      color: #d93025;
+    }
+
+    .memo-item-due.today {
+      background: #fef7e0;
+      color: #f9ab00;
+    }
+
+    .memo-item-due.upcoming {
+      background: #e8f0fe;
+      color: #1967d2;
+    }
+
     .memo-item-tags {
       display: flex;
       gap: 4px;
@@ -234,9 +283,19 @@
         <input type="text" class="search-input" id="searchInput" placeholder="メモを検索...">
       </div>
       <div class="filters">
-        <button class="filter-btn" id="filterImportant" data-filter="important">⭐ 重要</button>
-        <button class="filter-btn" id="filterTasks" data-filter="tasks">☑️ 未完タスク</button>
-        <button class="filter-btn" id="filterAll" data-filter="all">すべて</button>
+        <button class="filter-btn active" data-filter="all">すべて</button>
+        <button class="filter-btn" data-filter="important">⭐ 重要</button>
+        <button class="filter-btn" data-filter="tasks">☑️ 未完タスク</button>
+        <button class="filter-btn" data-filter="overdue">⚠️ 期限切れ</button>
+        <button class="filter-btn" data-filter="today">⏰ 今日</button>
+        <button class="filter-btn" data-filter="upcoming">📅 今週</button>
+      </div>
+      <div class="filters" style="margin-top: 8px;">
+        <button class="filter-btn" data-filter="color-red">🔴 赤</button>
+        <button class="filter-btn" data-filter="color-yellow">🟡 黄</button>
+        <button class="filter-btn" data-filter="color-green">🟢 緑</button>
+        <button class="filter-btn" data-filter="color-blue">🔵 青</button>
+        <button class="filter-btn" data-filter="color-purple">🟣 紫</button>
       </div>
     </div>
 
