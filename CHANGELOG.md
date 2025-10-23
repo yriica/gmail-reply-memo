@@ -2,6 +2,26 @@
 
 All notable changes to Gmail Reply Memo will be documented in this file.
 
+## [0.2.1] - 2025-10-20
+
+### Added
+- **受信トレイバッジ機能**
+  - 返信期限があるメールを受信トレイ一覧で一目で確認可能
+  - 送信者名の後にバッジを表示（⚠️期限切れ、⏰今日、📅明日、📅X日後）
+  - 期限に応じた背景色表示（期限切れ: 赤、今日: 黄、今後: 青）
+  - 8日以上先の期限は表示しない（設定で変更可能: 3/7/14/30日）
+  - 設定ページで受信トレイバッジの有効/無効を切り替え可能
+  - MutationObserverによる動的な一覧更新に対応
+
+### Removed
+- **カラーコーディング機能を削除**
+  - メモに5色のカラーラベルを設定する機能を削除
+  - カラーフィルタリング機能を削除
+  - 理由: ユーザーの要望により不要と判断
+
+### Changed
+- バージョンを0.2.1に更新
+
 ## [0.2.0] - 2025-10-16
 
 ### Added
@@ -11,11 +31,6 @@ All notable changes to Gmail Reply Memo will be documented in this file.
   - Chrome通知APIによる期限アラート（1時間ごとにチェック）
   - 通知クリックでスレッドを直接開く機能
 
-- **カラーコーディング**
-  - メモに5色のカラーラベルを設定可能（赤・黄・緑・青・紫）
-  - パネルに色付きボーダー表示
-  - ポップアップでカラーフィルタリング機能
-
 - **スレッド情報の自動取得**
   - スレッド件名を自動取得して保存
   - 送信者情報を自動取得して保存
@@ -24,7 +39,6 @@ All notable changes to Gmail Reply Memo will be documented in this file.
 
 - **拡張フィルタ機能**
   - 期限フィルタ: 期限切れ・今日・今週（7日以内）
-  - カラーフィルタ: 5色での絞り込み
   - 既存フィルタ（重要・未完タスク）との併用可能
 
 - **新しい権限**
@@ -36,13 +50,11 @@ All notable changes to Gmail Reply Memo will be documented in this file.
   - スレッド件名を大きく表示
   - 送信者名の表示
   - 期限情報の視覚的表示（色分け）
-  - カラーバッジの表示
   - より情報量の多いメモプレビュー
 
 - **データ構造の拡張**
   - `dueDate`: 返信期限（タイムスタンプ）
   - `reminderEnabled`: リマインダー有効フラグ
-  - `color`: カラーラベル（red/yellow/green/blue/purple）
   - `threadSubject`: スレッド件名
   - `threadSender`: 送信者名
 

@@ -110,12 +110,6 @@
         if (currentFilter === 'upcoming' && (diffDays < 1 || diffDays > 7)) return false;
       }
 
-      // カラーフィルタ
-      if (currentFilter.startsWith('color-')) {
-        const color = currentFilter.replace('color-', '');
-        if (memo.color !== color) return false;
-      }
-
       // 検索クエリチェック
       if (searchQuery) {
         const searchableText = [
@@ -165,9 +159,6 @@
   function createMemoItem(memo) {
     const item = document.createElement('div');
     item.className = 'memo-item';
-
-    // カラーバッジ
-    const colorBadge = memo.color ? `<span class="memo-item-color-badge ${memo.color}"></span>` : '';
 
     // 重要マーク
     const importantIcon = memo.important ? '<span class="memo-item-important">⭐</span>' : '';
@@ -233,7 +224,6 @@
 
     item.innerHTML = `
       <div class="memo-item-header">
-        ${colorBadge}
         ${importantIcon}
         <span class="memo-item-subject">${subject}</span>
       </div>

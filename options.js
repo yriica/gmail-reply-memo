@@ -7,7 +7,9 @@
     storageType: 'local',
     autoSaveInterval: 2000,
     panelPosition: 'right',
-    showBadge: false
+    showBadge: false,
+    showInboxBadges: true,
+    inboxBadgeDays: 7
   };
 
   let currentSettings = { ...DEFAULT_SETTINGS };
@@ -64,12 +66,26 @@
     } else {
       badgeToggle.classList.remove('active');
     }
+
+    const inboxBadgeToggle = document.getElementById('inboxBadgeToggle');
+    if (currentSettings.showInboxBadges) {
+      inboxBadgeToggle.classList.add('active');
+    } else {
+      inboxBadgeToggle.classList.remove('active');
+    }
+
+    document.getElementById('inboxBadgeDays').value = currentSettings.inboxBadgeDays;
   }
 
   // イベントリスナーを設定
   function setupEventListeners() {
     // トグルスイッチ
     document.getElementById('badgeToggle').addEventListener('click', (e) => {
+      e.target.classList.toggle('active');
+    });
+
+    // 受信トレイバッジトグルスイッチ
+    document.getElementById('inboxBadgeToggle').addEventListener('click', (e) => {
       e.target.classList.toggle('active');
     });
 
@@ -95,7 +111,9 @@
       storageType: document.getElementById('storageType').value,
       autoSaveInterval: parseInt(document.getElementById('autoSaveInterval').value),
       panelPosition: document.getElementById('panelPosition').value,
-      showBadge: document.getElementById('badgeToggle').classList.contains('active')
+      showBadge: document.getElementById('badgeToggle').classList.contains('active'),
+      showInboxBadges: document.getElementById('inboxBadgeToggle').classList.contains('active'),
+      inboxBadgeDays: parseInt(document.getElementById('inboxBadgeDays').value)
     };
 
     await chrome.storage.local.set({ settings: currentSettings });

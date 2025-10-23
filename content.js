@@ -17,6 +17,17 @@
     return hash.match(/#(inbox|all|starred|sent|drafts|trash|spam|label\/[^\/]+|search\/[^\/]+)\/[a-zA-Z0-9]+$/);
   }
 
+  // 受信トレイ一覧画面かどうかを判定
+  function isInboxView() {
+    const hash = location.hash;
+    console.log('##### isInboxView check - hash:', hash);
+    // 受信トレイ一覧: #inbox, #starred, #sent など（threadIdなし）
+    const result = hash.match(/^#(inbox|all|starred|sent|drafts|trash|spam|label\/[^\/]+|search\/[^\/]+)$/) ||
+           hash === '' || hash === '#';
+    console.log('##### isInboxView result:', result);
+    return result;
+  }
+
   // スレッドIDを取得（スレッド画面でのみ）
   function getThreadId() {
     // まずスレッド画面かチェック
@@ -95,7 +106,6 @@
         updatedAt: Date.now(),
         dueDate: null,
         reminderEnabled: false,
-        color: null,
         archived: false,
         threadSubject: '',
         threadSender: ''
@@ -115,7 +125,6 @@
         updatedAt: Date.now(),
         dueDate: null,
         reminderEnabled: false,
-        color: null,
         archived: false,
         threadSubject: '',
         threadSender: ''
@@ -130,7 +139,6 @@
         updatedAt: Date.now(),
         dueDate: null,
         reminderEnabled: false,
-        color: null,
         archived: false,
         threadSubject: '',
         threadSender: ''
@@ -523,69 +531,6 @@
           color: #1a73e8;
         }
 
-        .color-picker {
-          display: flex;
-          gap: 6px;
-          align-items: center;
-          margin-bottom: 8px;
-          padding: 8px 12px;
-          background: #f8f9fa;
-          border-radius: 8px;
-        }
-
-        .color-picker-label {
-          font-size: 12px;
-          color: #5f6368;
-          margin-right: 4px;
-        }
-
-        .color-option {
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          border: 2px solid transparent;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .color-option:hover {
-          transform: scale(1.15);
-        }
-
-        .color-option.active {
-          border-color: #3c4043;
-          box-shadow: 0 0 0 2px #fff, 0 0 0 4px #3c4043;
-        }
-
-        .color-option[data-color="red"] { background: #ea4335; }
-        .color-option[data-color="yellow"] { background: #fbbc04; }
-        .color-option[data-color="green"] { background: #34a853; }
-        .color-option[data-color="blue"] { background: #4285f4; }
-        .color-option[data-color="purple"] { background: #a142f4; }
-        .color-option[data-color="none"] {
-          background: #fff;
-          border: 2px solid #dadce0;
-        }
-
-        .memo-panel[data-color="red"] {
-          border-left: 4px solid #ea4335;
-        }
-
-        .memo-panel[data-color="yellow"] {
-          border-left: 4px solid #fbbc04;
-        }
-
-        .memo-panel[data-color="green"] {
-          border-left: 4px solid #34a853;
-        }
-
-        .memo-panel[data-color="blue"] {
-          border-left: 4px solid #4285f4;
-        }
-
-        .memo-panel[data-color="purple"] {
-          border-left: 4px solid #a142f4;
-        }
       </style>
 
       <button class="toggle-btn panel-visible" id="toggleBtn" title="メモを表示/非表示">
@@ -605,16 +550,6 @@
         </div>
 
         <div class="memo-body">
-          <div class="color-picker">
-            <span class="color-picker-label">🎨 カラー:</span>
-            <div class="color-option" data-color="none" title="色なし"></div>
-            <div class="color-option" data-color="red" title="赤（緊急）"></div>
-            <div class="color-option" data-color="yellow" title="黄（保留）"></div>
-            <div class="color-option" data-color="green" title="緑（対応済み）"></div>
-            <div class="color-option" data-color="blue" title="青（確認中）"></div>
-            <div class="color-option" data-color="purple" title="紫（重要）"></div>
-          </div>
-
           <div class="memo-reminder">
             <span>📅 返信期限:</span>
             <input type="date" id="dueDateInput" />
@@ -827,24 +762,6 @@
       if (importantBadge) importantBadge.classList.remove('visible');
     }
 
-    // カラーコーディング
-    const colorOptions = shadowRoot.querySelectorAll('.color-option');
-    colorOptions.forEach(option => {
-      const color = option.dataset.color;
-      if ((data.color && color === data.color) || (!data.color && color === 'none')) {
-        option.classList.add('active');
-      } else {
-        option.classList.remove('active');
-      }
-    });
-
-    // パネルにカラー属性を設定
-    if (data.color) {
-      panel.setAttribute('data-color', data.color);
-    } else {
-      panel.removeAttribute('data-color');
-    }
-
     // リマインダー（期限）
     const dueDateInput = shadowRoot.getElementById('dueDateInput');
     const reminderStatus = shadowRoot.getElementById('reminderStatus');
@@ -979,10 +896,6 @@
       };
     });
 
-    // 選択されているカラーを取得
-    const activeColorOption = shadowRoot.querySelector('.color-option.active');
-    const color = activeColorOption ? activeColorOption.dataset.color : null;
-
     // 期限を取得
     const dueDateValue = dueDateInput.value;
     const dueDate = dueDateValue ? new Date(dueDateValue).getTime() : null;
@@ -992,7 +905,6 @@
       important: importantBtn.classList.contains('active'),
       tags: tags,
       tasks: tasks,
-      color: color === 'none' ? null : color,
       dueDate: dueDate,
       reminderEnabled: !!dueDate,
       updatedAt: Date.now()
@@ -1152,28 +1064,6 @@
       }
     });
 
-    // カラーピッカー
-    shadowRoot.querySelectorAll('.color-option').forEach(option => {
-      option.addEventListener('click', () => {
-        // すべての選択を解除
-        shadowRoot.querySelectorAll('.color-option').forEach(opt => {
-          opt.classList.remove('active');
-        });
-        // クリックされたカラーを選択
-        option.classList.add('active');
-
-        // パネルにカラー属性を設定
-        const color = option.dataset.color;
-        if (color === 'none') {
-          panel.removeAttribute('data-color');
-        } else {
-          panel.setAttribute('data-color', color);
-        }
-
-        saveCurrentMemo();
-      });
-    });
-
     // 期限入力
     dueDateInput.addEventListener('change', () => {
       const data = getCurrentMemoData();
@@ -1243,6 +1133,264 @@
     return true;
   });
 
+  // 受信トレイのスレッド行からスレッドIDを取得
+  function getThreadIdFromRow(row) {
+    let threadId = null;
+
+    // 方法1: data-thread-id 属性から取得
+    threadId = row.getAttribute('data-thread-id');
+    if (!threadId) {
+      // 方法2: 子要素から取得
+      const threadElement = row.querySelector('[data-thread-id]');
+      if (threadElement) {
+        threadId = threadElement.getAttribute('data-thread-id');
+      }
+    }
+
+    if (!threadId) {
+      // 方法3: data-legacy-thread-id から取得
+      const legacyElement = row.querySelector('[data-legacy-thread-id]');
+      if (legacyElement) {
+        threadId = legacyElement.getAttribute('data-legacy-thread-id');
+      }
+    }
+
+    if (!threadId) {
+      return null;
+    }
+
+    // "#thread-f:" などのプレフィックスを削除
+    // 例: "#thread-f:1846552771188077059" -> "1846552771188077059"
+    threadId = threadId.replace(/^#thread-[a-z]:/, '');
+
+    return threadId;
+  }
+
+  // 期限バッジを作成
+  function createDueBadge(dueDate) {
+    const now = new Date();
+    const due = new Date(dueDate);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+    const diffDays = Math.floor((dueDay - today) / (1000 * 60 * 60 * 24));
+
+    let badgeText = '';
+    let badgeStyle = '';
+
+    if (diffDays < 0) {
+      // 期限切れ
+      badgeText = `⚠️期限切れ(${Math.abs(diffDays)}日)`;
+      badgeStyle = 'background: #fce8e6; color: #d93025;';
+    } else if (diffDays === 0) {
+      // 今日
+      badgeText = '⏰今日';
+      badgeStyle = 'background: #fef7e0; color: #f9ab00;';
+    } else if (diffDays === 1) {
+      // 明日
+      badgeText = '📅明日';
+      badgeStyle = 'background: #e8f0fe; color: #1967d2;';
+    } else if (diffDays <= 7) {
+      // 2〜7日後
+      badgeText = `📅${diffDays}日後`;
+      badgeStyle = 'background: #e8f0fe; color: #1967d2;';
+    } else {
+      // 8日以上先は表示しない
+      return null;
+    }
+
+    const badge = document.createElement('span');
+    badge.className = 'gmail-memo-inbox-badge';
+    badge.textContent = badgeText;
+    badge.style.cssText = `
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 6px;
+      font-size: 11px;
+      border-radius: 10px;
+      font-weight: 500;
+      white-space: nowrap;
+      ${badgeStyle}
+    `;
+
+    return badge;
+  }
+
+  // 受信トレイのスレッド行に期限バッジを追加
+  async function addInboxBadge(row) {
+    // 既にバッジが追加されているか確認
+    if (row.querySelector('.gmail-memo-inbox-badge')) {
+      return;
+    }
+
+    // スレッドIDを取得
+    const threadId = getThreadIdFromRow(row);
+    if (!threadId) {
+      console.log('Gmail Reply Memo: Could not get thread ID from row');
+      return;
+    }
+    console.log('Gmail Reply Memo: Processing thread', threadId);
+
+    // メモデータをロード
+    const key = `${getUserId()}#${threadId}`;
+    let memo;
+    try {
+      const result = await chrome.storage.local.get(key);
+      memo = result[key];
+      console.log('Gmail Reply Memo: Loaded memo for', threadId, memo);
+    } catch (error) {
+      console.error('Failed to load memo for inbox badge:', error);
+      return;
+    }
+
+    // 期限がない場合は何もしない
+    if (!memo || !memo.dueDate) {
+      console.log('Gmail Reply Memo: No memo or due date for', threadId);
+      return;
+    }
+    console.log('Gmail Reply Memo: Found due date', memo.dueDate, 'for thread', threadId);
+
+    // バッジを作成
+    const badge = createDueBadge(memo.dueDate);
+    if (!badge) {
+      console.log('Gmail Reply Memo: Badge not created (8+ days away)');
+      return; // 8日以上先の場合は表示しない
+    }
+    console.log('Gmail Reply Memo: Badge created:', badge);
+
+    // 送信者名の要素を探す（複数の方法を試す）
+    let senderElement = row.querySelector('[email]');
+    if (!senderElement) {
+      senderElement = row.querySelector('span[name]');
+    }
+    if (!senderElement) {
+      senderElement = row.querySelector('.yW span');
+    }
+
+    if (!senderElement) {
+      console.log('Gmail Reply Memo: Sender element not found');
+      return;
+    }
+    console.log('Gmail Reply Memo: Found sender element:', senderElement);
+
+    // 送信者要素が見つかった場合、その直後に挿入
+    if (senderElement) {
+      // 送信者要素の親要素に挿入
+      const parent = senderElement.parentElement;
+      if (parent) {
+        // 送信者要素の次の兄弟要素の前に挿入
+        if (senderElement.nextSibling) {
+          parent.insertBefore(badge, senderElement.nextSibling);
+        } else {
+          parent.appendChild(badge);
+        }
+        console.log('Gmail Reply Memo: Badge inserted successfully');
+      }
+    }
+
+    // 背景色を適用
+    const now = new Date();
+    const due = new Date(memo.dueDate);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+    const diffDays = Math.floor((dueDay - today) / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      // 期限切れ - 薄い赤
+      row.style.backgroundColor = '#ffebee';
+    } else if (diffDays === 0) {
+      // 今日 - 薄い黄色
+      row.style.backgroundColor = '#fff8e1';
+    }
+  }
+
+  // 受信トレイの全スレッドにバッジを追加
+  async function updateInboxBadges() {
+    console.log('===== Gmail Reply Memo: updateInboxBadges START =====');
+    console.log('Gmail Reply Memo: isInboxView?', isInboxView());
+    console.log('Gmail Reply Memo: location.hash:', location.hash);
+
+    if (!isInboxView()) {
+      console.log('Gmail Reply Memo: Not in inbox view, exiting');
+      return;
+    }
+
+    // スレッド行を取得（Gmail のDOM構造に依存）
+    const threadRows = document.querySelectorAll('tr.zA');
+    console.log('Gmail Reply Memo: Found', threadRows.length, 'thread rows');
+
+    if (threadRows.length === 0) {
+      console.log('Gmail Reply Memo: No thread rows found. Trying alternative selector...');
+      const altRows = document.querySelectorAll('tr[data-thread-id]');
+      console.log('Gmail Reply Memo: Found', altRows.length, 'rows with data-thread-id');
+    }
+
+    // 各スレッド行にバッジを追加
+    for (const row of threadRows) {
+      await addInboxBadge(row);
+    }
+
+    console.log('===== Gmail Reply Memo: updateInboxBadges END =====');
+  }
+
+  // 受信トレイの変更を監視
+  let inboxObserver = null;
+
+  function observeInboxChanges() {
+    if (!isInboxView()) {
+      // 受信トレイでない場合は監視を停止
+      if (inboxObserver) {
+        inboxObserver.disconnect();
+        inboxObserver = null;
+      }
+      return;
+    }
+
+    // 既に監視中の場合は何もしない
+    if (inboxObserver) {
+      return;
+    }
+
+    // メインコンテンツエリアを監視
+    const mainContent = document.querySelector('div[role="main"]');
+    if (!mainContent) {
+      console.log('Gmail Reply Memo: Main content not found');
+      return;
+    }
+
+    inboxObserver = new MutationObserver((mutations) => {
+      // 新しいスレッド行が追加されたかチェック
+      let hasNewThreads = false;
+      for (const mutation of mutations) {
+        if (mutation.addedNodes.length > 0) {
+          for (const node of mutation.addedNodes) {
+            if (node.nodeType === 1 && (node.matches('tr.zA') || node.querySelector('tr.zA'))) {
+              hasNewThreads = true;
+              break;
+            }
+          }
+        }
+        if (hasNewThreads) break;
+      }
+
+      if (hasNewThreads) {
+        // デバウンス：連続した変更を1回にまとめる
+        if (updateInboxBadges.timer) {
+          clearTimeout(updateInboxBadges.timer);
+        }
+        updateInboxBadges.timer = setTimeout(() => {
+          updateInboxBadges();
+        }, 500);
+      }
+    });
+
+    inboxObserver.observe(mainContent, {
+      childList: true,
+      subtree: true
+    });
+
+    console.log('Gmail Reply Memo: Inbox observer started');
+  }
+
   // スレッド遷移を監視
   async function handleRouteChange() {
     const threadId = getThreadId();
@@ -1256,6 +1404,15 @@
         currentThreadId = null;
       }
       console.log('Gmail Reply Memo: Not in thread view, panel removed');
+
+      // 受信トレイの場合はバッジを更新
+      if (isInboxView()) {
+        setTimeout(() => {
+          updateInboxBadges();
+          observeInboxChanges();
+        }, 1000); // Gmailのレンダリングを待つ
+      }
+
       return;
     }
 
@@ -1291,6 +1448,13 @@
 
     setTimeout(initialCheck, 500);
 
+    // 受信トレイバッジの初期化（リトライ付き）
+    console.log('Gmail Reply Memo: Initializing inbox badges...');
+    setTimeout(() => {
+      updateInboxBadges();
+      observeInboxChanges();
+    }, 2000); // Gmailが完全に読み込まれるまで待つ
+
     // URL変更を監視（Gmail は SPA なので）
     let lastUrl = location.href;
     const observer = new MutationObserver(() => {
@@ -1312,9 +1476,14 @@
   }
 
   // DOMの準備ができたら初期化
+  console.log('##### Gmail Reply Memo: Script loaded! #####');
+  console.log('##### document.readyState:', document.readyState);
+
   if (document.readyState === 'loading') {
+    console.log('##### Waiting for DOMContentLoaded #####');
     document.addEventListener('DOMContentLoaded', init);
   } else {
+    console.log('##### DOM already loaded, initializing now #####');
     init();
   }
 })();

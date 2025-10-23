@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gmail Reply Memo",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Gmailのスレッドに返信メモを追加できる拡張機能",
   "permissions": ["storage", "notifications", "alarms"],
   "host_permissions": ["https://mail.google.com/*"],
