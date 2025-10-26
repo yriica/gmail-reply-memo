@@ -21,14 +21,8 @@
   "content_scripts": [
     {
       "matches": ["https://mail.google.com/*"],
-      "js": ["libs/toastui-editor.js", "content.js"],
+      "js": ["content.js"],
       "run_at": "document_idle"
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": ["libs/toastui-editor.css"],
-      "matches": ["https://mail.google.com/*"]
     }
   ],
   "background": {

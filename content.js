@@ -8,7 +8,6 @@
   let panelContainer = null;
   let shadowRoot = null;
   let autoSaveTimer = null;
-  let editorInstance = null;
 
   // スレッド画面かどうかを判定（より厳密に）
   function isThreadView() {
@@ -192,15 +191,7 @@
 
   // メモパネルのHTMLとCSSを生成
   async function createPanelHTML() {
-    // エディタのCSSを読み込む
-    const editorCssUrl = chrome.runtime.getURL('libs/toastui-editor.css');
-    const editorCssResponse = await fetch(editorCssUrl);
-    const editorCss = await editorCssResponse.text();
-
     return `
-      <style>
-        ${editorCss}
-      </style>
       <style>
         :host {
           all: initial;
@@ -289,27 +280,13 @@
         }
 
         #memoEditor {
-          min-height: 200px;
+          min-height: auto;
           border: none;
           border-radius: 8px;
-          background: rgba(255,255,255,0.8);
+          background: rgba(255,255,255,0.9);
           overflow: hidden;
         }
 
-        #memoEditor .toastui-editor-defaultUI {
-          border: none;
-        }
-
-        #memoEditor .toastui-editor-main-container {
-          background: transparent;
-        }
-
-        #memoEditor .ProseMirror {
-          min-height: 150px;
-          padding: 12px 14px;
-          font-size: 14px;
-          line-height: 1.6;
-        }
 
         .tasks-section {
           margin-top: 8px;
@@ -627,12 +604,6 @@
 
   // メモパネルを初期化
   async function initPanel(threadId, memoData) {
-    // 既存のエディタを破棄
-    if (editorInstance) {
-      editorInstance.destroy();
-      editorInstance = null;
-    }
-
     // 既存のパネルを削除
     if (panelContainer) {
       panelContainer.remove();
@@ -748,7 +719,7 @@
     console.log('Gmail Reply Memo: Panel initialized successfully at position:', insertionInfo.position);
   }
 
-  // エディタを初期化
+  // エディタを初期化（シンプルなテキストエリア版）
   async function initEditor(memoData) {
     if (!shadowRoot) return;
 
@@ -758,34 +729,151 @@
       return;
     }
 
-    try {
-      // Toast UI Editorのインスタンスを作成
-      editorInstance = new toastui.Editor({
-        el: editorContainer,
-        height: '200px',
-        initialEditType: 'wysiwyg',
-        previewStyle: 'vertical',
-        placeholder: 'ここに返信メモを入力...',
-        initialValue: memoData.content || '',
-        hideModeSwitch: false,
-        toolbarItems: [
-          ['heading', 'bold', 'italic', 'strike'],
-          ['hr', 'quote'],
-          ['ul', 'ol', 'task'],
-          ['table', 'link'],
-          ['code', 'codeblock']
-        ],
-        events: {
-          change: () => {
-            saveCurrentMemo();
+    // Markdown対応のテキストエリアを使用
+    editorContainer.innerHTML = `
+      <textarea id="memoTextarea" placeholder="ここに返信メモを入力" style="
+        width: 100%;
+        min-height: 70px;
+        max-height: 400px;
+        padding: 10px 14px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        line-height: 1.6;
+        resize: vertical;
+        box-sizing: border-box;
+        background: rgba(255, 255, 255, 0.9);
+        color: #3c4043;
+        outline: none;
+        transition: background 0.2s;
+      ">${memoData.content || ''}</textarea>
+    `;
+    
+    const textarea = editorContainer.querySelector('#memoTextarea');
+    
+    // 自動保存
+    textarea.addEventListener('input', () => {
+      saveCurrentMemo();
+    });
+    
+    // フォーカス時のスタイル変更
+    textarea.addEventListener('focus', () => {
+      textarea.style.background = 'rgba(255, 255, 255, 1)';
+    });
+    
+    textarea.addEventListener('blur', () => {
+      textarea.style.background = 'rgba(255, 255, 255, 0.9)';
+    });
+    
+    // キーボードショートカット
+    textarea.addEventListener('keydown', (e) => {
+      // IME変換中はスキップ（日本語入力の変換確定を優先）
+      if (e.isComposing || e.keyCode === 229) {
+        return;
+      }
+      
+      // Tabキーでインデント挿入
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const value = textarea.value;
+        
+        textarea.value = value.substring(0, start) + '  ' + value.substring(end);
+        textarea.selectionStart = textarea.selectionEnd = start + 2;
+        
+        // 自動保存をトリガー
+        textarea.dispatchEvent(new Event('input'));
+      }
+      
+      // Enterキーでリストの自動継続
+      if (e.key === 'Enter') {
+        const start = textarea.selectionStart;
+        const value = textarea.value;
+        
+        // 現在の行を取得
+        const beforeCursor = value.substring(0, start);
+        const currentLineStart = beforeCursor.lastIndexOf('\n') + 1;
+        const currentLine = beforeCursor.substring(currentLineStart);
+        
+        // リストパターンをチェック
+        // - 箇条書き: "* ", "- ", "+ "
+        // - 番号付き: "1. ", "2. " など
+        // - チェックリスト: "- [ ] ", "- [x] "
+        const bulletMatch = currentLine.match(/^(\s*)([-*+])\s+(.*)$/);
+        const numberedMatch = currentLine.match(/^(\s*)(\d+)\.\s+(.*)$/);
+        const checkboxMatch = currentLine.match(/^(\s*)([-*+])\s+\[([ x])\]\s+(.*)$/);
+        
+        if (checkboxMatch) {
+          // チェックリストの場合
+          const [, indent, marker, , content] = checkboxMatch;
+          
+          // 空のチェックリスト項目の場合はリストを終了
+          if (content.trim() === '') {
+            e.preventDefault();
+            // 現在の行を削除して改行のみ挿入
+            const newValue = value.substring(0, currentLineStart) + value.substring(start);
+            textarea.value = newValue;
+            textarea.selectionStart = textarea.selectionEnd = currentLineStart;
+          } else {
+            // 次の行に新しいチェックリスト項目を追加
+            e.preventDefault();
+            const newLine = `\n${indent}${marker} [ ] `;
+            textarea.value = value.substring(0, start) + newLine + value.substring(start);
+            textarea.selectionStart = textarea.selectionEnd = start + newLine.length;
           }
+          
+          // 自動保存をトリガー
+          textarea.dispatchEvent(new Event('input'));
+        } else if (bulletMatch) {
+          // 箇条書きの場合
+          const [, indent, marker, content] = bulletMatch;
+          
+          // 空の箇条書き項目の場合はリストを終了
+          if (content.trim() === '') {
+            e.preventDefault();
+            // 現在の行を削除して改行のみ挿入
+            const newValue = value.substring(0, currentLineStart) + value.substring(start);
+            textarea.value = newValue;
+            textarea.selectionStart = textarea.selectionEnd = currentLineStart;
+          } else {
+            // 次の行に新しい箇条書き項目を追加
+            e.preventDefault();
+            const newLine = `\n${indent}${marker} `;
+            textarea.value = value.substring(0, start) + newLine + value.substring(start);
+            textarea.selectionStart = textarea.selectionEnd = start + newLine.length;
+          }
+          
+          // 自動保存をトリガー
+          textarea.dispatchEvent(new Event('input'));
+        } else if (numberedMatch) {
+          // 番号付きリストの場合
+          const [, indent, num, content] = numberedMatch;
+          
+          // 空の番号付き項目の場合はリストを終了
+          if (content.trim() === '') {
+            e.preventDefault();
+            // 現在の行を削除して改行のみ挿入
+            const newValue = value.substring(0, currentLineStart) + value.substring(start);
+            textarea.value = newValue;
+            textarea.selectionStart = textarea.selectionEnd = currentLineStart;
+          } else {
+            // 次の行に新しい番号付き項目を追加（番号をインクリメント）
+            e.preventDefault();
+            const nextNum = parseInt(num) + 1;
+            const newLine = `\n${indent}${nextNum}. `;
+            textarea.value = value.substring(0, start) + newLine + value.substring(start);
+            textarea.selectionStart = textarea.selectionEnd = start + newLine.length;
+          }
+          
+          // 自動保存をトリガー
+          textarea.dispatchEvent(new Event('input'));
         }
-      });
-
-      console.log('Editor initialized successfully');
-    } catch (error) {
-      console.error('Failed to initialize editor:', error);
-    }
+      }
+    });
+    
+    console.log('Editor initialized successfully');
   }
 
   // UIにデータを反映
@@ -947,8 +1035,9 @@
     const dueDateValue = dueDateInput.value;
     const dueDate = dueDateValue ? new Date(dueDateValue).getTime() : null;
 
-    // エディタからMarkdownコンテンツを取得
-    const content = editorInstance ? editorInstance.getMarkdown() : '';
+    // テキストエリアからコンテンツを取得
+    const textarea = shadowRoot.getElementById('memoTextarea');
+    const content = textarea ? textarea.value : '';
 
     return {
       content: content,
@@ -1086,9 +1175,8 @@
       await chrome.storage.local.remove(key);
 
       // UIをクリア
-      if (editorInstance) {
-        editorInstance.setMarkdown('');
-      }
+      const textarea = shadowRoot.getElementById('memoTextarea');
+      if (textarea) textarea.value = '';
       shadowRoot.getElementById('tasksList').innerHTML = '';
       shadowRoot.querySelectorAll('.tag').forEach(tag => tag.remove());
       importantBtn.classList.remove('active');
@@ -1163,9 +1251,8 @@
       toggleIcon.textContent = '▼';
     }
 
-    if (editorInstance) {
-      editorInstance.focus();
-    }
+    const textarea = shadowRoot.getElementById('memoTextarea');
+    if (textarea) textarea.focus();
   }
 
   // コマンドメッセージを受信
