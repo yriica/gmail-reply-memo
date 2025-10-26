@@ -8,6 +8,7 @@
   let panelContainer = null;
   let shadowRoot = null;
   let autoSaveTimer = null;
+  let editorInstance = null;
 
   // スレッド画面かどうかを判定（より厳密に）
   function isThreadView() {
@@ -190,8 +191,16 @@
   }
 
   // メモパネルのHTMLとCSSを生成
-  function createPanelHTML() {
+  async function createPanelHTML() {
+    // エディタのCSSを読み込む
+    const editorCssUrl = chrome.runtime.getURL('libs/toastui-editor.css');
+    const editorCssResponse = await fetch(editorCssUrl);
+    const editorCss = await editorCssResponse.text();
+
     return `
+      <style>
+        ${editorCss}
+      </style>
       <style>
         :host {
           all: initial;
@@ -279,32 +288,27 @@
           background: transparent;
         }
 
-        .memo-content {
-          min-height: 60px;
+        #memoEditor {
+          min-height: 200px;
           border: none;
           border-radius: 8px;
+          background: rgba(255,255,255,0.8);
+          overflow: hidden;
+        }
+
+        #memoEditor .toastui-editor-defaultUI {
+          border: none;
+        }
+
+        #memoEditor .toastui-editor-main-container {
+          background: transparent;
+        }
+
+        #memoEditor .ProseMirror {
+          min-height: 150px;
           padding: 12px 14px;
           font-size: 14px;
           line-height: 1.6;
-          outline: none;
-          background: rgba(255,255,255,0.8);
-          color: #3c4043;
-          transition: all 0.2s;
-          font-family: 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-
-        .memo-content * {
-          font-family: inherit !important;
-        }
-
-        .memo-content:focus {
-          background: #ffffff;
-          box-shadow: 0 1px 2px 0 rgba(60,64,67,0.1);
-        }
-
-        .memo-content:empty:before {
-          content: attr(data-placeholder);
-          color: #80868b;
         }
 
         .tasks-section {
@@ -557,10 +561,7 @@
             <span class="reminder-status" id="reminderStatus"></span>
           </div>
 
-          <div class="memo-content"
-               contenteditable="true"
-               data-placeholder="ここに返信メモを入力..."
-               id="memoContent"></div>
+          <div id="memoEditor"></div>
 
           <div class="tasks-section">
             <div class="tasks-header">
@@ -625,7 +626,13 @@
   }
 
   // メモパネルを初期化
-  function initPanel(threadId, memoData) {
+  async function initPanel(threadId, memoData) {
+    // 既存のエディタを破棄
+    if (editorInstance) {
+      editorInstance.destroy();
+      editorInstance = null;
+    }
+
     // 既存のパネルを削除
     if (panelContainer) {
       panelContainer.remove();
@@ -727,22 +734,64 @@
     }
 
     shadowRoot = panelContainer.attachShadow({ mode: 'open' });
-    shadowRoot.innerHTML = createPanelHTML();
+    shadowRoot.innerHTML = await createPanelHTML();
+
+    // エディタを初期化
+    await initEditor(memoData);
 
     // イベントリスナーを設定
     setupEventListeners(threadId);
 
-    // データを反映
+    // データを反映（エディタ以外）
     updatePanelUI(memoData);
 
     console.log('Gmail Reply Memo: Panel initialized successfully at position:', insertionInfo.position);
+  }
+
+  // エディタを初期化
+  async function initEditor(memoData) {
+    if (!shadowRoot) return;
+
+    const editorContainer = shadowRoot.getElementById('memoEditor');
+    if (!editorContainer) {
+      console.error('Editor container not found');
+      return;
+    }
+
+    try {
+      // Toast UI Editorのインスタンスを作成
+      editorInstance = new toastui.Editor({
+        el: editorContainer,
+        height: '200px',
+        initialEditType: 'wysiwyg',
+        previewStyle: 'vertical',
+        placeholder: 'ここに返信メモを入力...',
+        initialValue: memoData.content || '',
+        hideModeSwitch: false,
+        toolbarItems: [
+          ['heading', 'bold', 'italic', 'strike'],
+          ['hr', 'quote'],
+          ['ul', 'ol', 'task'],
+          ['table', 'link'],
+          ['code', 'codeblock']
+        ],
+        events: {
+          change: () => {
+            saveCurrentMemo();
+          }
+        }
+      });
+
+      console.log('Editor initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize editor:', error);
+    }
   }
 
   // UIにデータを反映
   function updatePanelUI(data) {
     if (!shadowRoot) return;
 
-    const content = shadowRoot.getElementById('memoContent');
     const tasksList = shadowRoot.getElementById('tasksList');
     const tagsInput = shadowRoot.getElementById('tagsInput');
     const importantBtn = shadowRoot.getElementById('importantBtn');
@@ -750,8 +799,7 @@
     const meta = shadowRoot.getElementById('memoMeta');
     const panel = shadowRoot.getElementById('memoPanel');
 
-    // コンテンツ
-    content.innerHTML = data.content || '';
+    // エディタのコンテンツは initEditor() で設定済み
 
     // 重要フラグ
     if (data.important) {
@@ -881,7 +929,6 @@
 
   // 現在のメモデータを取得
   function getCurrentMemoData() {
-    const content = shadowRoot.getElementById('memoContent');
     const importantBtn = shadowRoot.getElementById('importantBtn');
     const dueDateInput = shadowRoot.getElementById('dueDateInput');
     const tags = Array.from(shadowRoot.querySelectorAll('.tag')).map(tag => {
@@ -900,8 +947,11 @@
     const dueDateValue = dueDateInput.value;
     const dueDate = dueDateValue ? new Date(dueDateValue).getTime() : null;
 
+    // エディタからMarkdownコンテンツを取得
+    const content = editorInstance ? editorInstance.getMarkdown() : '';
+
     return {
-      content: content.innerHTML,
+      content: content,
       important: importantBtn.classList.contains('active'),
       tags: tags,
       tasks: tasks,
@@ -989,7 +1039,6 @@
     const collapseBtn = shadowRoot.getElementById('collapseBtn');
     const importantBtn = shadowRoot.getElementById('importantBtn');
     const deleteBtn = shadowRoot.getElementById('deleteBtn');
-    const content = shadowRoot.getElementById('memoContent');
     const addTaskBtn = shadowRoot.getElementById('addTaskBtn');
     const tagInput = shadowRoot.getElementById('tagInput');
     const dueDateInput = shadowRoot.getElementById('dueDateInput');
@@ -1037,15 +1086,15 @@
       await chrome.storage.local.remove(key);
 
       // UIをクリア
-      content.innerHTML = '';
+      if (editorInstance) {
+        editorInstance.setMarkdown('');
+      }
       shadowRoot.getElementById('tasksList').innerHTML = '';
       shadowRoot.querySelectorAll('.tag').forEach(tag => tag.remove());
       importantBtn.classList.remove('active');
     });
 
-    // コンテンツの自動保存
-    content.addEventListener('input', saveCurrentMemo);
-    content.addEventListener('blur', saveCurrentMemo);
+    // エディタの自動保存は initEditor() で設定済み
 
     // タスク追加
     addTaskBtn.addEventListener('click', addTask);
@@ -1105,7 +1154,6 @@
     if (!shadowRoot) return;
 
     const panel = shadowRoot.getElementById('memoPanel');
-    const content = shadowRoot.getElementById('memoContent');
     const toggleBtn = shadowRoot.getElementById('toggleBtn');
     const toggleIcon = shadowRoot.getElementById('toggleIcon');
 
@@ -1115,7 +1163,9 @@
       toggleIcon.textContent = '▼';
     }
 
-    content.focus();
+    if (editorInstance) {
+      editorInstance.focus();
+    }
   }
 
   // コマンドメッセージを受信
