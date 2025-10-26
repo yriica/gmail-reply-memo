@@ -1,0 +1,11 @@
+{
+  "name": "gmail-reply-memo",
+  "version": "0.2.1",
+  "description": "Gmailのスレッドに返信メモを追加できる拡張機能",
+  "scripts": {
+    "prepare-libs": "node prepare-libs.js"
+  },
+  "devDependencies": {
+    "@toast-ui/editor": "^3.2.2"
+  }
+}
