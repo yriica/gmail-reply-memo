@@ -289,7 +289,8 @@
         }
 
         #memoEditor {
-          min-height: 200px;
+          min-height: 80px;
+          max-height: 300px;
           border: none;
           border-radius: 8px;
           background: rgba(255,255,255,0.8);
@@ -304,11 +305,19 @@
           background: transparent;
         }
 
+        #memoEditor .toastui-editor-toolbar {
+          background: transparent;
+          border-bottom: 1px solid rgba(0,0,0,0.06);
+          padding: 4px 8px;
+        }
+
         #memoEditor .ProseMirror {
-          min-height: 150px;
-          padding: 12px 14px;
+          min-height: 60px;
+          max-height: 200px;
+          padding: 8px 12px;
           font-size: 14px;
-          line-height: 1.6;
+          line-height: 1.5;
+          overflow-y: auto;
         }
 
         .tasks-section {
@@ -759,32 +768,39 @@
     }
 
     try {
+      // Toast UI Editorが利用可能か確認
+      if (typeof window.toastui === 'undefined' || typeof window.toastui.Editor === 'undefined') {
+        console.error('Toast UI Editor is not loaded');
+        console.log('Available globals:', Object.keys(window).filter(k => k.includes('toast') || k.includes('Editor')));
+        return;
+      }
+
       // Toast UI Editorのインスタンスを作成
-      editorInstance = new toastui.Editor({
+      editorInstance = new window.toastui.Editor({
         el: editorContainer,
-        height: '200px',
+        height: '80px',
         initialEditType: 'wysiwyg',
         previewStyle: 'vertical',
         placeholder: 'ここに返信メモを入力...',
         initialValue: memoData.content || '',
-        hideModeSwitch: false,
+        hideModeSwitch: true,
         toolbarItems: [
-          ['heading', 'bold', 'italic', 'strike'],
-          ['hr', 'quote'],
-          ['ul', 'ol', 'task'],
-          ['table', 'link'],
-          ['code', 'codeblock']
+          ['bold', 'italic', 'strike'],
+          ['ul', 'ol'],
+          ['link']
         ],
         events: {
           change: () => {
             saveCurrentMemo();
           }
-        }
+        },
+        autofocus: false
       });
 
       console.log('Editor initialized successfully');
     } catch (error) {
       console.error('Failed to initialize editor:', error);
+      console.error('Error details:', error.message, error.stack);
     }
   }
 
